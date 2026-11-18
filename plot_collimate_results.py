@@ -1,125 +1,14 @@
-from pathlib import Path
-import re
+"""
+STEP 3: plot beam radius vs. distance for each wavelength in step 2's results
+(txt_files/<RUN_NAME>_final_results.txt). Saves one PNG per wavelength into plots/<RUN_NAME>/.
+"""
 import math
 import numpy as np
 import matplotlib.pyplot as plt
 
 from ABCD import flat_q, prop_free, prop_lens
-
-
-# RESULTS_FILE = Path(__file__).with_name("collimate_results.txt")
-RESULTS_FILE = Path(__file__).with_name("new_mfd_final_results_250.txt")
-BASE_PLOTS_DIR = Path(__file__).with_name("plots")
-PLOTS_DIR = BASE_PLOTS_DIR / "new_mfd_final_collimated_beam_profiles_250"
-PLOTS_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def parse_results(path: Path):
-    text = path.read_text(encoding="utf-8")
-    blocks = text.split("\n\n\n")
-    solutions = []
-    for block in blocks:
-        if "BEST SOLUTION" not in block:
-            continue
-        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
-        data = {}
-
-        for ln0 in lines:
-            m = re.match(r"(\d+) nm - BEST SOLUTION", ln0)
-            if m:
-                data["wvlen"] = int(m.group(1))
-                break
-
-        def extract_number(key: str, s: str):
-            pattern = rf"{key}\s*=\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)"
-            m = re.search(pattern, s)
-            if m:
-                return m.group(1)
-            if "inf" in s.lower():
-                return "inf"
-            return None
-
-        for ln in lines:
-            if ln.startswith("f1"):
-                v = extract_number("f1", ln)
-                if v:
-                    data["f1"] = float(v) * 1e-3
-            elif ln.startswith("f2"):
-                v = extract_number("f2", ln)
-                if v:
-                    data["f2"] = float(v) * 1e-3
-            elif ln.startswith("d1") and "d12" not in ln:
-                v = extract_number("d1", ln)
-                if v:
-                    data["d1"] = float(v) * 1e-3
-            elif ln.startswith("d12"):
-                v = extract_number("d12", ln)
-                if v:
-                    data["d12"] = float(v) * 1e-3
-            elif ln.startswith("d2") and "Ideal" not in ln:
-                v = extract_number("d2", ln)
-                if v:
-                    data["d2"] = float(v) * 1e-3
-            elif ln.startswith("Ideal d2"):
-                v = extract_number("Ideal d2", ln)
-                if v:
-                    data["d2_ideal"] = float(v) * 1e-3
-            elif ln.startswith("Input waist"):
-                v = extract_number("Input waist", ln)
-                if v:
-                    data["w_i"] = float(v) * 1e-6
-            elif ln.startswith("Cavity waist"):
-                v = extract_number("Cavity waist", ln)
-                if v:
-                    data["w_c"] = float(v) * 1e-6
-            elif ln.startswith("Output waist"):
-                v = extract_number("Output waist", ln)
-                if v:
-                    data["w_o"] = float(v) * 1e-6
-            elif ln.startswith("Waist error"):
-                v = extract_number("Waist error", ln)
-                if v:
-                    data["error"] = float(v) * 1e-6
-            elif ln.startswith("Fractional error"):
-                v = extract_number("Fractional error", ln)
-                if v and v != "inf":
-                    data["frac_error"] = float(v)
-            elif ln.startswith("Output ROC"):
-                v = extract_number("Output ROC", ln)
-                if v == "inf":
-                    data["R_o"] = float("inf")
-                elif v:
-                    data["R_o"] = float(v)
-
-        if "wvlen" in data:
-            solutions.append(data)
-
-        if "f1" not in data:
-            m = re.search(r"f1\s*=\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)", block)
-            if m:
-                data["f1"] = float(m.group(1)) * 1e-3
-        if "f2" not in data:
-            m = re.search(r"f2\s*=\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)", block)
-            if m:
-                data["f2"] = float(m.group(1)) * 1e-3
-        if "d1" not in data:
-            m = re.search(r"^d1\s*=\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)", block, re.MULTILINE)
-            if m:
-                data["d1"] = float(m.group(1)) * 1e-3
-        if "d12" not in data:
-            m = re.search(r"^d12\s*=\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)", block, re.MULTILINE)
-            if m:
-                data["d12"] = float(m.group(1)) * 1e-3
-        if "d2" not in data:
-            m = re.search(r"^d2\s*=\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)", block, re.MULTILINE)
-            if m:
-                data["d2"] = float(m.group(1)) * 1e-3
-        if "d2_ideal" not in data:
-            m = re.search(r"^Ideal d2\s*=\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)", block, re.MULTILINE)
-            if m:
-                data["d2_ideal"] = float(m.group(1)) * 1e-3
-
-    return solutions
+from constants import RUN_NAME
+from results_io import FINAL_RESULTS_FILE, PLOTS_DIR, read_results
 
 
 def sample_profile(wvlen, w_i, d1, f1, d12, f2, d2, n_points=800):
@@ -174,7 +63,7 @@ def plot_solution(sol):
     ax.plot(zs_mm, ws_um, lw=2)
     ax.set_xlabel("Distance (mm)")
     ax.set_ylabel("Beam radius (μm)")
-    ax.set_title(f"{wvlen} nm Collimated Mode Profile")
+    ax.set_title(f"{wvlen} nm Collimated Mode Profile ({RUN_NAME})")
 
     lens1_x = d1 * 1e3
     lens2_x = (d1 + d12) * 1e3
@@ -258,7 +147,8 @@ def plot_solution(sol):
 
 
 def main():
-    sols = parse_results(RESULTS_FILE)
+    PLOTS_DIR.mkdir(parents=True, exist_ok=True)
+    sols = read_results(FINAL_RESULTS_FILE).values()
     saved = []
     for sol in sols:
         path = plot_solution(sol)

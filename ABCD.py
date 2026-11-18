@@ -134,6 +134,16 @@ def runner(wvlen, d1, f1, d12, f2, d2):
     w_o = math.sqrt(-wvlen*1e-9/(((1/q_out).imag)*math.pi))  # Calculate output waist (m)
     return w_i, w_c, w_o, R_o, d2_ideal, max_waist
 
+def evaluate(wvlen, d1, f1, d12, f2, d2):
+    """
+    Run runner() and return everything the pipeline records about one layout, as a dict (SI units).
+    waist_error = |output radius - cavity waist|; d2_error = |d2 - where the output waist actually is|.
+    """
+    w_i, w_c, w_o, R_o, d2_ideal, max_waist = runner(wvlen, d1, f1, d12, f2, d2)
+    return {"wvlen": wvlen, "f1": f1, "f2": f2, "d1": d1, "d12": d12, "d2": d2, "d2_ideal": d2_ideal,
+            "w_i": w_i, "w_c": w_c, "w_o": w_o, "max_waist": max_waist, "R_o": R_o,
+            "waist_error": abs(w_o - w_c), "d2_error": abs(d2 - d2_ideal)}
+
 def main():
     wvlen = 556
     # ideal_waist = 0.00052 # 0.52 m
